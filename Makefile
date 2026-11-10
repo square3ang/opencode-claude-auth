@@ -1,7 +1,7 @@
-.PHONY: build test test-models lint fix format clean intercept intercept-all intercept-update validate-oauth validate-oauth-dry
+.PHONY: compile test test-models lint fix format clean intercept intercept-all intercept-update validate-oauth validate-oauth-dry
 
-build:
-	pnpm run build
+compile:
+	pnpm run compile
 
 test:
 	pnpm run test:isolated
@@ -30,10 +30,10 @@ intercept-all:
 intercept-update:
 	pnpm run intercept:update
 
-validate-oauth: build  ## Run live OAuth refresh (rotates token, writes back)
+validate-oauth: compile  ## Run live OAuth refresh (rotates token, writes back)
 	pnpm run validate:oauth
 
-validate-oauth-dry: build  ## Dry-run OAuth refresh (no network request)
+validate-oauth-dry: compile  ## Dry-run OAuth refresh (no network request)
 	pnpm run validate:oauth -- --dry-run
 
-all: lint build test
+all: lint compile test

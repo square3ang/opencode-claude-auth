@@ -37,7 +37,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
         if: steps.release-please.outputs.releases_created == 'true'
 
-      - run: pnpm run build
+      - run: pnpm run compile
         if: steps.release-please.outputs.releases_created == 'true'
 
       - run: pnpm publish --access public --provenance --no-git-checks
