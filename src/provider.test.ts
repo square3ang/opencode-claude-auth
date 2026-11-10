@@ -93,15 +93,15 @@ describe("Claude subscription transport", () => {
     }
     assert.match(body.system[0].text, /^x-anthropic-billing-header/)
     assert.equal(body.system[0].cache_control, undefined)
-    assert.equal(body.system[1].cache_control, undefined)
+    assert.equal(
+      body.system[1].text,
+      "You are Claude Code, Anthropic's official CLI for Claude.\nStable OpenCode prompt",
+    )
+    assert.deepEqual(body.system[1].cache_control, { type: "ephemeral" })
     assert.equal(body.tools[0].name, "mcp_Read")
     assert.deepEqual(body.tools[0].cache_control, { type: "ephemeral" })
-    assert.equal(body.messages[0].content[0].text, "Stable OpenCode prompt")
-    assert.deepEqual(body.messages[0].content[0].cache_control, {
-      type: "ephemeral",
-    })
-    assert.equal(body.messages[0].content[1].text, "hello")
-    assert.equal(body.messages[0].content[1].cache_control, undefined)
+    assert.equal(body.messages[0].content[0].text, "hello")
+    assert.equal(body.messages[0].content[0].cache_control, undefined)
     assert.deepEqual(body.cache_control, { type: "ephemeral" })
     assert.match(await response.text(), /"name": "read"/)
   })

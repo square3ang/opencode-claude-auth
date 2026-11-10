@@ -68,6 +68,6 @@ export function getModelOverride(modelId: string): ModelOverride | null {
 export function getUserAgent(): string {
   return (
     process.env.ANTHROPIC_USER_AGENT ??
-    `claude-cli/${process.env.ANTHROPIC_CLI_VERSION ?? config.ccVersion} (external, sdk-cli)`
+    `claude-cli/${process.env.ANTHROPIC_CLI_VERSION ?? config.ccVersion} (external, opencode)`
   )
 }

@@ -58,38 +58,9 @@ const CACHEABLE_MESSAGE_BLOCK_TYPES = new Set([
   "compaction",
 ])
 
-function relocateSystemEntries(
-  body: RequestBody,
-  keptSystem: SystemEntry[],
-  movedSystem: ContentBlock[],
-): ContentBlock | undefined {
-  if (movedSystem.length === 0 || !Array.isArray(body.messages)) return
-  const firstUser = body.messages.find((message) => message.role === "user")
-  if (!firstUser) return
-
-  body.system = keptSystem
-  const blocks = movedSystem.map((block, index) => ({
-    ...block,
-    text: `${block.text ?? ""}${
-      index < movedSystem.length - 1 || typeof firstUser.content === "string"
-        ? "\n\n"
-        : ""
-    }`,
-  }))
-  if (typeof firstUser.content === "string") {
-    firstUser.content = [...blocks, { type: "text", text: firstUser.content }]
-    return blocks.at(-1)
-  }
-  if (Array.isArray(firstUser.content)) firstUser.content.unshift(...blocks)
-  return blocks.at(-1)
-}
-
-function applyPromptCaching(
-  body: RequestBody,
-  movedSystemBoundary: ContentBlock | undefined,
-): void {
+function applyPromptCaching(body: RequestBody): void {
   markCacheBoundary(findLastCustomTool(body.tools))
-  markCacheBoundary(movedSystemBoundary)
+  markCacheBoundary(findLastSystemBoundary(body.system))
   markCacheBoundary(findPreviousMessageBoundary(body.messages))
   body.cache_control = { type: "ephemeral" }
 }
@@ -104,6 +75,19 @@ function findLastCustomTool(
 ): Record<string, unknown> | undefined {
   for (let index = (tools?.length ?? 0) - 1; index >= 0; index--) {
     if (tools![index].type === undefined) return tools![index]
+  }
+}
+
+function findLastSystemBoundary(
+  system: RequestBody["system"],
+): Record<string, unknown> | undefined {
+  if (!Array.isArray(system)) return
+  for (let index = system.length - 1; index >= 0; index--) {
+    const entry = system[index]
+    const text = entry.text ?? ""
+    if (text.length > 0 && !text.startsWith("x-anthropic-billing-header")) {
+      return entry
+    }
   }
 }
 
@@ -471,7 +455,7 @@ export function transformBody(
 
     // --- Billing header: inject as system[0] (no cache_control) ---
     const version = process.env.ANTHROPIC_CLI_VERSION ?? config.ccVersion
-    const entrypoint = process.env.CLAUDE_CODE_ENTRYPOINT ?? "sdk-cli"
+    const entrypoint = process.env.CLAUDE_CODE_ENTRYPOINT ?? "opencode"
     const billingHeader = buildBillingHeaderValue(
       (parsed.messages ?? []) as Array<{
         role?: string
@@ -497,78 +481,9 @@ export function transformBody(
         ),
     )
 
-    // Insert billing header as system[0], without cache_control
+    // Insert billing header as system[0], without cache_control. The rest of
+    // system[] stays exactly as OpenCode's Anthropic provider built it.
     parsed.system.unshift({ type: "text", text: billingHeader })
-
-    // --- Split identity prefix into its own system entry ---
-    // OpenCode's system.transform hook prepends the identity string, but
-    // OpenCode then concatenates all system entries into a single text block.
-    // Anthropic's API requires the identity string as a separate entry for
-    // OAuth validation (see issue #98).
-    const splitSystem: SystemEntry[] = []
-    for (const entry of parsed.system) {
-      if (
-        entry.type === "text" &&
-        typeof entry.text === "string" &&
-        entry.text.startsWith(SYSTEM_IDENTITY) &&
-        entry.text.length > SYSTEM_IDENTITY.length
-      ) {
-        const rest = entry.text
-          .slice(SYSTEM_IDENTITY.length)
-          .replace(/^\n+/, "")
-        // Preserve all properties except text (e.g. cache_control)
-        const { text: _text, ...entryProps } = entry
-        // Only keep cache_control on the remainder block to avoid exceeding
-        // the API limit of 4 cache_control blocks per request.
-        const { cache_control: _cc, ...identityProps } = entryProps
-        splitSystem.push({ ...identityProps, text: SYSTEM_IDENTITY })
-        if (rest.length > 0) {
-          splitSystem.push({ ...entryProps, text: rest })
-        }
-      } else if (
-        entry.type === "text" &&
-        entry.text === SYSTEM_IDENTITY &&
-        entry["cache_control"] !== undefined
-      ) {
-        const { cache_control: _cacheControl, ...identity } = entry
-        splitSystem.push(identity)
-      } else {
-        splitSystem.push(entry)
-      }
-    }
-    parsed.system = splitSystem
-
-    // --- Relocate non-core system entries to user messages ---
-    // Anthropic's API now validates the system prompt for OAuth-authenticated
-    // requests that use Claude Code billing.  Third-party system prompts
-    // (like OpenCode's) trigger a 400 "out of extra usage" rejection when
-    // they appear inside the system[] array alongside the identity prefix.
-    //
-    // Work-around: keep only the billing header and identity prefix in
-    // system[], and prepend all other system content to the first user
-    // message where it is functionally equivalent but avoids the check.
-    const BILLING_PREFIX = "x-anthropic-billing-header"
-    const keptSystem: SystemEntry[] = []
-    const movedSystem: ContentBlock[] = []
-    for (const entry of parsed.system) {
-      const txt = entry.text ?? ""
-      if (txt.startsWith(BILLING_PREFIX) || txt.startsWith(SYSTEM_IDENTITY)) {
-        keptSystem.push(entry)
-      } else if (txt.length > 0) {
-        movedSystem.push({
-          type: "text",
-          text: txt,
-          ...(!hasCacheControl(entry["cache_control"])
-            ? {}
-            : { cache_control: entry["cache_control"] }),
-        })
-      }
-    }
-    const movedSystemBoundary = relocateSystemEntries(
-      parsed,
-      keptSystem,
-      movedSystem,
-    )
 
     // Strip effort for models that don't support it (e.g. haiku).
     // OpenCode sends { output_config: { effort: "high" } } but haiku
@@ -623,7 +538,7 @@ export function transformBody(
       parsed.messages = applyToolRepair(parsed.messages, mode)
     }
 
-    if (!hasInputPromptCaching) applyPromptCaching(parsed, movedSystemBoundary)
+    if (!hasInputPromptCaching) applyPromptCaching(parsed)
 
     return JSON.stringify(parsed)
   } catch {

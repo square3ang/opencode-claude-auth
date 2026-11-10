@@ -59,8 +59,8 @@ describe("injectClaudeIdentity", () => {
   })
 
   it("recognises an identity carried inside a larger system entry", () => {
-    // transformBody splits this apart later; the identity is already there,
-    // so prepending a second one would duplicate it on every request.
+    // The identity is already present in a larger entry, so prepending a
+    // second one would duplicate it on every request.
     const event = request("anthropic", [`${SYSTEM_IDENTITY}\nAgent prompt`])
     injectClaudeIdentity(event)
     assert.deepEqual(texts(event), [`${SYSTEM_IDENTITY}\nAgent prompt`])

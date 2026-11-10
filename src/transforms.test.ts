@@ -43,7 +43,7 @@ function contentText(content: unknown): string {
 }
 
 describe("transforms", () => {
-  it("transformBody moves non-core system text to user message and PascalCase-prefixes tool names", () => {
+  it("transformBody keeps the system prompt as-is and PascalCase-prefixes tool names", () => {
     const input = JSON.stringify({
       system: [{ type: "text", text: "OpenCode and opencode" }],
       tools: [{ name: "search" }],
@@ -62,27 +62,24 @@ describe("transforms", () => {
       }>
     }
 
-    // system should only contain the billing header (non-core text relocated)
-    assert.equal(parsed.system.length, 1)
+    // system[0] is the billing header; the original system prompt follows intact.
+    assert.equal(parsed.system.length, 2)
     assert.ok(
       parsed.system[0].text.startsWith("x-anthropic-billing-header:"),
       "system[0] should be the billing header",
     )
-    // The original system text should now be prepended to the first user message
-    assert.equal(parsed.messages[0].content[0].type, "text")
-    assert.equal(parsed.messages[0].content[0].text, "OpenCode and opencode")
+    assert.equal(parsed.system[1].text, "OpenCode and opencode")
+    // User content is untouched by system handling.
+    assert.equal(parsed.messages[0].content[0].type, "tool_use")
     assert.equal(parsed.tools[0].name, "mcp_Search")
-    assert.equal(parsed.messages[0].content[1].name, "mcp_Lookup")
+    assert.equal(parsed.messages[0].content[0].name, "mcp_Lookup")
   })
 
-  it("transformBody relocates non-core system text to user message", () => {
+  it("transformBody keeps non-core system text in the system prompt", () => {
+    const systemText =
+      "OpenCode docs: https://example.com/opencode/docs and path /var/opencode/bin"
     const input = JSON.stringify({
-      system: [
-        {
-          type: "text",
-          text: "Use opencode-claude-auth plugin instructions as-is.",
-        },
-      ],
+      system: [{ type: "text", text: systemText }],
       messages: [{ role: "user", content: "hello" }],
     })
 
@@ -93,40 +90,9 @@ describe("transforms", () => {
       messages: Array<{ content: unknown }>
     }
 
-    // Non-core system text should be moved to user message
-    assert.equal(parsed.system.length, 1) // only billing header
-    assert.ok(
-      contentText(parsed.messages[0].content).includes(
-        "Use opencode-claude-auth plugin instructions as-is.",
-      ),
-    )
-  })
-
-  it("transformBody relocates URL/path system text to user message", () => {
-    const input = JSON.stringify({
-      system: [
-        {
-          type: "text",
-          text: "OpenCode docs: https://example.com/opencode/docs and path /var/opencode/bin",
-        },
-      ],
-      messages: [{ role: "user", content: "hello" }],
-    })
-
-    const output = transformBody(input)
-    assert.equal(typeof output, "string")
-    const parsed = JSON.parse(output as string) as {
-      system: Array<{ text: string }>
-      messages: Array<{ content: unknown }>
-    }
-
-    // Non-core system text should be relocated
-    assert.equal(parsed.system.length, 1) // only billing header
-    assert.ok(
-      contentText(parsed.messages[0].content).includes(
-        "OpenCode docs: https://example.com/opencode/docs and path /var/opencode/bin",
-      ),
-    )
+    assert.equal(parsed.system.length, 2)
+    assert.equal(parsed.system[1].text, systemText)
+    assert.equal(parsed.messages[0].content, "hello")
   })
 
   it("transformBody injects billing header as system[0] with computed cch", () => {
@@ -168,7 +134,7 @@ describe("transforms", () => {
     )
   })
 
-  it("transformBody splits concatenated identity prefix and relocates remainder to user message", () => {
+  it("transformBody keeps a concatenated identity prefix entry intact", () => {
     const identity = "You are Claude Code, Anthropic's official CLI for Claude."
     const input = JSON.stringify({
       system: [
@@ -186,26 +152,23 @@ describe("transforms", () => {
       messages: Array<{ content: unknown }>
     }
 
-    // system[0] = billing header, system[1] = identity prefix
+    // system[0] = billing header, system[1] = the entry exactly as sent
     assert.ok(parsed.system[0].text.startsWith("x-anthropic-billing-header:"))
-    assert.equal(parsed.system[1].text, identity)
-    // remainder is relocated to user message
-    assert.equal(parsed.system.length, 2)
-    assert.ok(
-      contentText(parsed.messages[0].content).includes(
-        "Working directory: /home/test",
-      ),
+    assert.equal(
+      parsed.system[1].text,
+      `${identity}\nWorking directory: /home/test`,
     )
+    assert.equal(parsed.system.length, 2)
+    assert.equal(parsed.messages[0].content, "test")
   })
 
-  it("transformBody preserves a relocated system marker and its TTL", () => {
-    const identity = "You are Claude Code, Anthropic's official CLI for Claude."
+  it("transformBody preserves a system cache marker and its TTL", () => {
     const oneHour = { type: "ephemeral", ttl: "1h" }
     const input = JSON.stringify({
       system: [
         {
           type: "text",
-          text: `${identity}\nMore content here`,
+          text: "More content here",
           cache_control: oneHour,
         },
       ],
@@ -221,20 +184,9 @@ describe("transforms", () => {
       }>
     }
 
-    // Identity block should NOT have cache_control
-    assert.equal(
-      parsed.system[1].cache_control,
-      undefined,
-      "Identity block must not have cache_control",
-    )
-    // Remainder is relocated to user message, not kept in system
     assert.equal(parsed.system.length, 2)
-    assert.ok(
-      contentText(parsed.messages[0].content).includes("More content here"),
-    )
-    // The caller's explicit marker (and TTL) survives relocation; no
-    // automatic policy is added on top of it.
-    assert.deepEqual(parsed.messages[0].content[0].cache_control, oneHour)
+    assert.equal(parsed.system[1].text, "More content here")
+    assert.deepEqual(parsed.system[1].cache_control, oneHour)
     assert.equal(parsed.cache_control, undefined)
     assert.equal((output as string).match(/cache_control/g)?.length, 1)
   })
@@ -249,18 +201,15 @@ describe("transforms", () => {
     const output = transformBody(input)
     const parsed = JSON.parse(output as string) as {
       cache_control?: unknown
+      system: Array<{ cache_control?: unknown }>
       tools: Array<{ cache_control?: unknown }>
-      messages: Array<{
-        content: Array<{ text?: string; cache_control?: unknown }>
-      }>
+      messages: Array<{ content: unknown }>
     }
 
     assert.deepEqual(parsed.cache_control, { type: "ephemeral" })
+    assert.deepEqual(parsed.system[1].cache_control, { type: "ephemeral" })
     assert.deepEqual(parsed.tools[1].cache_control, { type: "ephemeral" })
-    assert.deepEqual(parsed.messages[0].content[0].cache_control, {
-      type: "ephemeral",
-    })
-    assert.equal(parsed.messages[0].content[1].cache_control, undefined)
+    assert.equal(parsed.messages[0].content, "latest")
     assert.equal((output as string).match(/cache_control/g)?.length, 3)
   })
 
@@ -343,7 +292,7 @@ describe("transforms", () => {
     assert.deepEqual(parsed.cache_control, { type: "ephemeral" })
   })
 
-  it("transformBody does not split identity-only system entry", () => {
+  it("transformBody keeps an identity-only system entry intact", () => {
     const identity = "You are Claude Code, Anthropic's official CLI for Claude."
     const input = JSON.stringify({
       system: [{ type: "text", text: identity }],
@@ -360,7 +309,7 @@ describe("transforms", () => {
     assert.equal(parsed.system[1].text, identity)
   })
 
-  it("transformBody removes duplicate billing headers and relocates non-core text", () => {
+  it("transformBody removes duplicate billing headers and keeps the system prompt", () => {
     const input = JSON.stringify({
       system: [
         {
@@ -390,11 +339,12 @@ describe("transforms", () => {
       billingEntries[0].text.includes("cch=fa690"),
       `Expected computed cch, got: ${billingEntries[0].text}`,
     )
-    // "prompt" should be relocated to user message
-    assert.ok(contentText(parsed.messages[0].content).includes("prompt"))
+    assert.equal(parsed.system.length, 2)
+    assert.equal(parsed.system[1].text, "prompt")
+    assert.equal(parsed.messages[0].content, "hey")
   })
 
-  it("transformBody relocates multiple non-core system entries to user message as content blocks", () => {
+  it("transformBody keeps multiple system entries as separate blocks", () => {
     const identity = "You are Claude Code, Anthropic's official CLI for Claude."
     const input = JSON.stringify({
       system: [
@@ -418,24 +368,16 @@ describe("transforms", () => {
       }>
     }
 
-    // system should only have billing header + identity
-    assert.equal(parsed.system.length, 2)
+    // system = billing header + the three entries, in order
+    assert.equal(parsed.system.length, 4)
     assert.ok(parsed.system[0].text.startsWith("x-anthropic-billing-header:"))
     assert.equal(parsed.system[1].text, identity)
-    // Both custom blocks should be prepended to user message content
-    assert.equal(parsed.messages[0].content[0].type, "text")
-    assert.ok(
-      parsed.messages[0].content[0].text.includes(
-        "Custom instructions block A",
-      ),
-    )
-    assert.ok(
-      parsed.messages[0].content[1].text.includes(
-        "Custom instructions block B",
-      ),
-    )
-    // Original user content preserved
-    assert.equal(parsed.messages[0].content[2].text, "hello")
+    assert.equal(parsed.system[2].text, "Custom instructions block A")
+    assert.equal(parsed.system[3].text, "Custom instructions block B")
+    // User content is untouched.
+    assert.deepEqual(parsed.messages[0].content, [
+      { type: "text", text: "hello" },
+    ])
   })
 
   it("transformBody keeps system intact when no messages exist", () => {
@@ -449,8 +391,7 @@ describe("transforms", () => {
       system: Array<{ text: string }>
     }
 
-    // With no messages to relocate into, system stays as-is
-    // (billing header + original text)
+    // Billing header + original text, with no message rewriting.
     assert.ok(parsed.system.length >= 2)
   })
 
@@ -1054,7 +995,7 @@ describe("transforms", () => {
     }
 
     // Orphaned tool_use message should be removed.
-    // The user message remains, with the relocated system "prompt" prepended.
+    // The user message remains untouched.
     assert.equal(parsed.messages.length, 1)
     assert.equal(parsed.messages[0].role, "user")
     assert.ok(
