@@ -65,9 +65,16 @@ export function getModelOverride(modelId: string): ModelOverride | null {
   return null
 }
 
+/** SDK version OpenCode's claude-agent provider pins; the user agent names it. */
+const AGENT_SDK_VERSION = "0.3.301"
+
 export function getUserAgent(): string {
-  return (
-    process.env.ANTHROPIC_USER_AGENT ??
-    `claude-cli/${process.env.ANTHROPIC_CLI_VERSION ?? config.ccVersion} (external, opencode)`
-  )
+  if (process.env.ANTHROPIC_USER_AGENT) return process.env.ANTHROPIC_USER_AGENT
+  const version = process.env.ANTHROPIC_CLI_VERSION ?? config.ccVersion
+  const entrypoint = process.env.CLAUDE_CODE_ENTRYPOINT ?? "opencode"
+  const sdk = process.env.CLAUDE_AGENT_SDK_VERSION ?? AGENT_SDK_VERSION
+  const clientApp = process.env.CLAUDE_AGENT_SDK_CLIENT_APP
+  return `claude-cli/${version} (external, ${entrypoint}, agent-sdk/${sdk}${
+    clientApp ? `, client-app/${clientApp}` : ""
+  })`
 }

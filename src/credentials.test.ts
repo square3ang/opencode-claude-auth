@@ -1721,7 +1721,7 @@ describe("refreshViaOAuth", () => {
       process.env.ANTHROPIC_USER_AGENT = "custom-agent"
       assert.ok(await refreshViaOAuth("current-refresh"))
       assert.deepEqual(userAgents, [
-        "claude-cli/2.1.292 (external, opencode)",
+        "claude-cli/2.1.292 (external, opencode, agent-sdk/0.3.301)",
         "custom-agent",
       ])
     } finally {
