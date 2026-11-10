@@ -108,8 +108,8 @@ describe("transforms", () => {
 
     assert.ok(parsed.system[0].text.startsWith("x-anthropic-billing-header:"))
     assert.ok(
-      parsed.system[0].text.includes("cch=fa690"),
-      `Expected cch=fa690 for 'hey', got: ${parsed.system[0].text}`,
+      parsed.system[0].text.includes("cch=00000"),
+      `Expected cch=00000 for 'hey', got: ${parsed.system[0].text}`,
     )
   })
 
@@ -135,7 +135,8 @@ describe("transforms", () => {
   })
 
   it("transformBody keeps a concatenated identity prefix entry intact", () => {
-    const identity = "You are Claude Code, Anthropic's official CLI for Claude."
+    const identity =
+      "You are a Claude agent, built on Anthropic's Claude Agent SDK."
     const input = JSON.stringify({
       system: [
         {
@@ -293,7 +294,8 @@ describe("transforms", () => {
   })
 
   it("transformBody keeps an identity-only system entry intact", () => {
-    const identity = "You are Claude Code, Anthropic's official CLI for Claude."
+    const identity =
+      "You are a Claude agent, built on Anthropic's Claude Agent SDK."
     const input = JSON.stringify({
       system: [{ type: "text", text: identity }],
       messages: [{ role: "user", content: "test" }],
@@ -336,7 +338,7 @@ describe("transforms", () => {
       "Should have exactly one billing header",
     )
     assert.ok(
-      billingEntries[0].text.includes("cch=fa690"),
+      billingEntries[0].text.includes("cch=00000"),
       `Expected computed cch, got: ${billingEntries[0].text}`,
     )
     assert.equal(parsed.system.length, 2)
@@ -345,7 +347,8 @@ describe("transforms", () => {
   })
 
   it("transformBody keeps multiple system entries as separate blocks", () => {
-    const identity = "You are Claude Code, Anthropic's official CLI for Claude."
+    const identity =
+      "You are a Claude agent, built on Anthropic's Claude Agent SDK."
     const input = JSON.stringify({
       system: [
         { type: "text", text: identity },

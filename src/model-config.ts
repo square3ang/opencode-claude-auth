@@ -12,14 +12,14 @@ export interface ModelConfig {
 }
 
 export const config: ModelConfig = {
-  ccVersion: "2.1.280",
+  ccVersion: "2.1.321",
   baseBetas: [
     "claude-code-20250219",
     "oauth-2025-04-20",
     "interleaved-thinking-2025-05-14",
-    "prompt-caching-scope-2026-01-05",
     "context-management-2025-06-27",
     "advisor-tool-2026-03-01",
+    "advanced-tool-use-2025-11-20",
     "thinking-token-count-2026-05-13",
     "extended-cache-ttl-2025-04-11",
   ],

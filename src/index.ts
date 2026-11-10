@@ -20,6 +20,7 @@ import {
   refreshOAuthCredential,
 } from "./oauth-method.ts"
 import { finishClaudeResponse, prepareClaudeRequest } from "./provider.ts"
+import { SYSTEM_IDENTITY } from "./transforms.ts"
 
 export * from "./betas.ts"
 export * from "./credentials.ts"
@@ -29,8 +30,6 @@ export * from "./signing.ts"
 export * from "./transforms.ts"
 
 const PROVIDER_ID = Provider.ID.make("anthropic")
-const SYSTEM_IDENTITY =
-  "You are Claude Code, Anthropic's official CLI for Claude."
 
 /**
  * Session request kinds that reach the model and are billed to the connected

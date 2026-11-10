@@ -4,6 +4,7 @@ import { readAllClaudeAccounts } from "./keychain.js";
 import { initLogger, log } from "./logger.js";
 import { authorizeOAuth, CLAUDE_CODE_OAUTH_METADATA_KEY, CLAUDE_CODE_OAUTH_METADATA_VALUE, INTEGRATION_ID, labelOAuthCredential, METHOD_ID, oauthMethodDescriptor, realOAuthDeps, refreshOAuthCredential, } from "./oauth-method.js";
 import { finishClaudeResponse, prepareClaudeRequest } from "./provider.js";
+import { SYSTEM_IDENTITY } from "./transforms.js";
 export * from "./betas.js";
 export * from "./credentials.js";
 export * from "./oauth-method.js";
@@ -11,7 +12,6 @@ export * from "./provider.js";
 export * from "./signing.js";
 export * from "./transforms.js";
 const PROVIDER_ID = Provider.ID.make("anthropic");
-const SYSTEM_IDENTITY = "You are Claude Code, Anthropic's official CLI for Claude.";
 /**
  * Session request kinds that reach the model and are billed to the connected
  * subscription. OpenCode 2 dispatches one hook per kind - `context` drives the

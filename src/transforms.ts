@@ -21,7 +21,7 @@ function unprefixName(name: string): string {
 }
 
 export const SYSTEM_IDENTITY =
-  "You are Claude Code, Anthropic's official CLI for Claude."
+  "You are a Claude agent, built on Anthropic's Claude Agent SDK."
 
 type SystemEntry = { type?: string; text?: string } & Record<string, unknown>
 type ContentBlock = { type?: string; text?: string } & Record<string, unknown>

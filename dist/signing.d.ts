@@ -12,10 +12,6 @@ interface Message {
  */
 export declare function extractFirstUserMessageText(messages: Message[]): string;
 /**
- * Compute cch: first 5 hex characters of SHA-256(messageText).
- */
-export declare function computeCch(messageText: string): string;
-/**
  * Compute the 3-char version suffix.
  * Samples characters at indices 4, 7, 20 from the message text (padding
  * with "0" when the message is shorter), then hashes with the billing salt
@@ -24,7 +20,8 @@ export declare function computeCch(messageText: string): string;
 export declare function computeVersionSuffix(messageText: string, version: string): string;
 /**
  * Build the complete billing header string for insertion into system[0].
- * Format: x-anthropic-billing-header: cc_version=V.S; cc_entrypoint=E; cch=H;
+ * Claude Code sends a literal cch on first-party requests.
+ * Format: x-anthropic-billing-header: cc_version=V.S; cc_entrypoint=E; cch=00000;
  */
 export declare function buildBillingHeaderValue(messages: Message[], version: string, entrypoint: string): string;
 export {};

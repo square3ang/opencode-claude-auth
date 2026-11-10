@@ -21,12 +21,6 @@ export function extractFirstUserMessageText(messages) {
     return "";
 }
 /**
- * Compute cch: first 5 hex characters of SHA-256(messageText).
- */
-export function computeCch(messageText) {
-    return createHash("sha256").update(messageText).digest("hex").slice(0, 5);
-}
-/**
  * Compute the 3-char version suffix.
  * Samples characters at indices 4, 7, 20 from the message text (padding
  * with "0" when the message is shorter), then hashes with the billing salt
@@ -41,15 +35,15 @@ export function computeVersionSuffix(messageText, version) {
 }
 /**
  * Build the complete billing header string for insertion into system[0].
- * Format: x-anthropic-billing-header: cc_version=V.S; cc_entrypoint=E; cch=H;
+ * Claude Code sends a literal cch on first-party requests.
+ * Format: x-anthropic-billing-header: cc_version=V.S; cc_entrypoint=E; cch=00000;
  */
 export function buildBillingHeaderValue(messages, version, entrypoint) {
     const text = extractFirstUserMessageText(messages);
     const suffix = computeVersionSuffix(text, version);
-    const cch = computeCch(text);
     return (`x-anthropic-billing-header: ` +
         `cc_version=${version}.${suffix}; ` +
         `cc_entrypoint=${entrypoint}; ` +
-        `cch=${cch};`);
+        `cch=00000;`);
 }
 //# sourceMappingURL=signing.js.map

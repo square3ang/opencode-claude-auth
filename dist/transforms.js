@@ -16,7 +16,7 @@ function prefixName(name) {
 function unprefixName(name) {
     return `${name.charAt(0).toLowerCase()}${name.slice(1)}`;
 }
-export const SYSTEM_IDENTITY = "You are Claude Code, Anthropic's official CLI for Claude.";
+export const SYSTEM_IDENTITY = "You are a Claude agent, built on Anthropic's Claude Agent SDK.";
 const CACHEABLE_MESSAGE_BLOCK_TYPES = new Set([
     "image",
     "document",

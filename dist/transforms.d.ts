@@ -1,4 +1,4 @@
-export declare const SYSTEM_IDENTITY = "You are Claude Code, Anthropic's official CLI for Claude.";
+export declare const SYSTEM_IDENTITY = "You are a Claude agent, built on Anthropic's Claude Agent SDK.";
 type ContentBlock = {
     type?: string;
     text?: string;

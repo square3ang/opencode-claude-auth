@@ -76,7 +76,7 @@ export function buildRequestHeaders(
     "x-stainless-lang": "js",
     "x-stainless-os":
       process.platform === "darwin" ? "MacOS" : process.platform,
-    "x-stainless-package-version": "0.81.0",
+    "x-stainless-package-version": "0.128.0",
     "x-stainless-retry-count": "0",
     "x-stainless-runtime": "node",
     "x-stainless-runtime-version": process.version,
